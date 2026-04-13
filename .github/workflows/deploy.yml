@@ -70,7 +70,7 @@ jobs:
             fi
             
             # Pull the latest image
-            docker pull ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
             # Stop and remove the existing container (if any)
             docker stop buildmat-gateway || true
@@ -85,7 +85,7 @@ jobs:
               -e BACKEND_URL="${{ secrets.BACKEND_URL }}" \
               -e FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
               -e ALLOWED_ORIGINS="${{ secrets.ALLOWED_ORIGINS }}" \
-              ${{ env.IMAGE_NAME }}:${{ github.sha }}
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
             # Remove dangling images to free disk space from container
             docker image prune -f
