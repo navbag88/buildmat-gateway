@@ -75,5 +75,5 @@ jobs:
               -e ALLOWED_ORIGINS="${{ secrets.ALLOWED_ORIGINS }}" \
               ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-            # Remove dangling images to free disk space
+            # Remove dangling images to free disk space from container
             docker image prune -f
