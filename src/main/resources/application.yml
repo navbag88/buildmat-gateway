@@ -1,0 +1,73 @@
+server:
+  port: ${PORT:8090}
+
+# ── Upstream service URLs ──────────────────────────────────────────────────────
+# Set these as environment variables in Railway (or docker-compose).
+# BACKEND_URL  → URL of the Spring Boot backend  (e.g. https://buildmat-backend.railway.app)
+# FRONTEND_URL → URL of the React frontend        (e.g. https://buildmat-frontend.railway.app)
+app:
+  backend-url:  ${BACKEND_URL:http://localhost:8080}
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+spring:
+  application:
+    name: buildmat-gateway
+
+  cloud:
+    gateway:
+      # ── Global CORS (gateway-level) ──────────────────────────────────────────
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:8090}
+            allowedMethods: [GET, POST, PUT, DELETE, OPTIONS, PATCH]
+            allowedHeaders: ["*"]
+            allowCredentials: true
+            maxAge: 3600
+
+      # ── Routes ───────────────────────────────────────────────────────────────
+      routes:
+
+        # All /api/** calls are proxied to the backend.
+        # Rate limiting is handled by the in-memory RateLimitFilter GlobalFilter bean.
+        - id: backend-api
+          uri: ${app.backend-url}
+          predicates:
+            - Path=/api/**
+          filters:
+            # Forward client IP to backend so session IP-binding works correctly
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+
+        # Everything else (SPA static files) → frontend service
+        - id: frontend-spa
+          uri: ${app.frontend-url}
+          predicates:
+            - Path=/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+
+      # ── Default filters applied to all routes ────────────────────────────────
+      default-filters:
+        # Propagate real client IP through proxy chain
+        - SecureHeaders
+        - name: Retry
+          args:
+            retries: 2
+            statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+            methods: GET
+
+# ── Actuator (used by Railway health check) ────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    reactor.netty: WARN
